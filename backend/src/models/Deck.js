@@ -4,7 +4,6 @@ const Card = require('./Cards')
 class Deck{
     constructor(numCards){
         this.cards = _.shuffle(_.range(numCards).map(n => Card.fromNumber(n, numCards)))
-
     }
 
     draw(n){

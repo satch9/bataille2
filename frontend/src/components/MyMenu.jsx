@@ -1,5 +1,5 @@
 // components/MyMenu.js
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { Menu, Modal, Form, Input, Select, message } from 'antd';
 import { HomeOutlined, PlusCircleOutlined, OrderedListOutlined,EllipsisOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
@@ -17,7 +17,7 @@ const MyMenu = () => {
   const [formParams] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
 
-  console.log("socket", socket);
+
 
   const navigate = useNavigate();
 
@@ -51,10 +51,10 @@ const MyMenu = () => {
 
   const onCreateParams = (values) => {
     console.log(values);
-    console.log("socket", socket)
+    //console.log("socket", socket)
     socket.emit("createRoom", { roomName: values.roomName, numCards: values.numCards });
     socket.on("roomCreated", ({ room }) => {
-      console.log('created', room);
+      //console.log('created', room);
       formParams.resetFields();
       setOpenParams(false);
     });
@@ -64,6 +64,10 @@ const MyMenu = () => {
     console.log("data", data);
     setRoomsFront(data)
   });
+
+  
+    console.log("socket", socket);
+  
 
   const items = [
     { key: "home", label: "Home", icon: <HomeOutlined />, link: "/" },
@@ -124,8 +128,8 @@ const MyMenu = () => {
           >
             <Select placeholder="Choisir une salle de jeu">
               {roomsFront.map((room) => (
-                <Select.Option key={room.name} value={room.name}>
-                  {room.name}
+                <Select.Option key={room.name.roomName} value={room.name.roomName}>
+                  {room.name.roomName}
                 </Select.Option>
               ))}
             </Select>
