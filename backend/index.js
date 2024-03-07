@@ -5,7 +5,7 @@ app.use(cors());
 const server = require("http").Server(app);
 const io = require("socket.io")(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: "https://silver-umbrella-jjggxjrvv5q3rw6-5173.app.github.dev",
     methods: ["GET", "POST"],
   }
 });
