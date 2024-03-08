@@ -1,10 +1,11 @@
 // components/MyMenu.js
 import { useState, useContext, useEffect } from 'react';
 import { Menu, Modal, Form, Input, Select, message } from 'antd';
-import { HomeOutlined, PlusCircleOutlined, OrderedListOutlined,EllipsisOutlined } from '@ant-design/icons';
+import { HomeOutlined, PlusCircleOutlined, OrderedListOutlined, EllipsisOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import useUsernameCookie from '../hooks/useUsernameCookie';
 import { SocketContext } from '../context/SocketContext';
+import { io } from 'socket.io-client';
 
 const MyMenu = () => {
   const { setUsername, setCookie } = useUsernameCookie();
@@ -17,12 +18,10 @@ const MyMenu = () => {
   const [formParams] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
 
-
-
   const navigate = useNavigate();
 
-  const info = () => {
-    messageApi.info("Il n'y a pas de jeux  en cours pour le moment.");
+  const info = (text) => {
+    messageApi.info(text);
   };
 
   /* const handleLogout = () => {
@@ -39,40 +38,72 @@ const MyMenu = () => {
     setOpenParams(true);
   };
 
+  useEffect(() => {
+    const handleJoinedRoom = ({ roomName, username }) => {
+      console.log(`User ${username} joined room ${roomName}`);
+      navigate("/game", { replace: false });
+    }
+
+    socket.on("joinedRoom", handleJoinedRoom);
+
+    return () => {
+      socket.off("joinedRoom", handleJoinedRoom)
+    }
+  }, [navigate])
+
   const onJoinedGame = (values) => {
-    console.log('Received values of form: ', values);
-    setCookie("username", values.username, { path: '/' });
+    //console.log('Received values of form: ', values);
+    setCookie("username", values.username);
     setUsername(values.username);
-    setCookie("room", values.room, { path: '/' });
+    setCookie("room", values.roomName);
     setOpen(false);
-    socket.emit("joinRoom", { room: values.room, username: values.username });
-    navigate(`/game`, { replace: true });
+    socket.emit("joinRoom", { roomName: values.roomName, username: values.username });
+
   };
 
   const onCreateParams = (values) => {
-    console.log(values);
+    //console.log(values);
     //console.log("socket", socket)
-    socket.emit("createRoom", { roomName: values.roomName, numCards: values.numCards });
-    socket.on("roomCreated", ({ room }) => {
-      //console.log('created', room);
-      formParams.resetFields();
-      setOpenParams(false);
+    socket.emit("createRoom", { roomName: values.roomName, numCards: parseInt(values.numCards) });
+    socket.on("roomCreated", ({ created }) => {
+      if (created === "ok") {
+        formParams.resetFields();
+        setOpenParams(false);
+      }
+
     });
   };
 
   socket.on("roomsAvailable", (data) => {
-    console.log("data", data);
     setRoomsFront(data)
   });
 
-  
-    console.log("socket", socket);
-  
+  /*  useEffect(() => {
+     socket.on("playerJoined", ({ roomName, username }) => {
+       handlePlayerJoined(roomName, username);
+     })
+   }, []) */
+
+
+
+  console.log("socket", socket);
+
+  const handleAvailableGamesClick = () => {
+    if (roomsFront.length > 0) {
+      showModal();
+    } else {
+      info("Il n'y a pas de jeux  en cours pour le moment.");
+    }
+  };
+
+  const handlePlayerJoined = (roomName, username) => {
+    info(`${username} joined the game in the room ${roomName}!`);
+  }
 
   const items = [
     { key: "home", label: "Home", icon: <HomeOutlined />, link: "/" },
 
-    { key: "available-games", label: "Jeux Disponibles", icon: <OrderedListOutlined />, onClick: roomsFront.length > 0 ? showModal : info },
+    { key: "available-games", label: "Jeux Disponibles", icon: <OrderedListOutlined />, onClick: roomsFront.length > 0 ? showModal : handleAvailableGamesClick },
     { key: "create-game", label: "Créer", icon: <PlusCircleOutlined />, onClick: showModalParams },
   ];
 
@@ -84,7 +115,7 @@ const MyMenu = () => {
  */
 
   return (
-    <Menu theme="dark" mode="horizontal" defaultSelectedKeys={['1']} overflowedIndicator= {<EllipsisOutlined />}>
+    <Menu theme="dark" mode="horizontal" defaultSelectedKeys={['1']} overflowedIndicator={<EllipsisOutlined />}>
       {contextHolder}
       {items.map((item) => (
 
@@ -108,10 +139,9 @@ const MyMenu = () => {
             .then((values) => {
               onJoinedGame(values);
               form.resetFields();
-
             })
-            .catch((info) => {
-              console.log('Validate Failed:', info);
+            .catch((error) => {
+              console.log('Validate Failed:', error);
             });
         }}
       >
@@ -123,13 +153,13 @@ const MyMenu = () => {
             <Input placeholder="Nom d'utilisateur" />
           </Form.Item>
           <Form.Item
-            name="room"
+            name="roomName"
             rules={[{ required: true, message: "Veuillez choisir une salle de jeu!" }]}
           >
             <Select placeholder="Choisir une salle de jeu">
               {roomsFront.map((room) => (
-                <Select.Option key={room.name.roomName} value={room.name.roomName}>
-                  {room.name.roomName}
+                <Select.Option key={room.name} value={room.name}>
+                  {room.name}
                 </Select.Option>
               ))}
             </Select>
@@ -149,8 +179,8 @@ const MyMenu = () => {
               onCreateParams(values);
               formParams.resetFields();
             })
-            .catch((info) => {
-              console.log('Validate Failed:', info);
+            .catch((error) => {
+              console.log('Validate Failed:', error);
             });
         }}
       >

@@ -26,60 +26,50 @@ io.on("connection", (socket) => {
   connectedUsers.add(userId);
   console.log(`User ${userId} has connected.`);
 
-  // Handle user disconnection
-  socket.on("disconnect", () => {
-    console.log(`User ${userId} has disconnected.`);
-    const player = getRoomByPlayerId(userId);
 
-    if (player) {
-      const room = player.room;
-      room.players = room.players.filter((p) => p.id !== userId);
-      if (room.players.length === 0) {
-        rooms = rooms.filter((r) => r !== room);
-      } else {
-        io.to(room.name).emit("playerLeft", userId);
-      }
-    }
-    connectedUsers.delete(userId);
-  });
 
   // Handle user creation of a new room
-  socket.on("createRoom", (roomName, numCards) => {
-    if (getRoomByName(roomName)) {
+  socket.on("createRoom", (params) => {
+    if (getRoomByName(params.roomName)) {
       io.to(userId).emit("error", "Room  already exists.");
       return;
     }
 
-    const newRoom = new Room(roomName, numCards, [new Player(userId)]);
+    const newRoom = new Room(params);
     rooms.push(newRoom);
     connectedUsers.add(userId);
-    NUMBERS_OF_CARDS = parseInt(numCards);
-    rooms.push(newRoom);
-    //socket.emit("roomCreated", { room: newRoom });
+    NUMBERS_OF_CARDS = parseInt(params.numCards);
+    socket.emit("roomCreated", { created: "ok" });
     io.emit("roomsAvailable", rooms)
     console.log(`Room ${newRoom.name} created by ${socket.id}`);
     console.log("backend Rooms after create room: ", rooms);
   });
 
   // handle user joining a room
-  socket.on("joinRoom", (roomName, username) => {
+  socket.on("joinRoom", ({ roomName, username }) => {
+
+    console.log("roomName, username", `${roomName}, ${username}`);
     const room = getRoomByName(roomName);
+    console.log("room joinRoom", room);
     if (!room) {
+      console.log('----------here1----------------');
       socket.emit("error", "Room not found");
       return;
     }
 
-    if (room.players.some((player) => player.name === username)) {
+    if (room.players.length !== 0 && room.players.some((player) => player.name === username)) {
+      console.log('----------here2----------------');
       socket.emit("error", "Username already taken");
       return;
     }
 
-    const newPlayer = new Player(userId, username)
+    const newPlayer = new Player(userId, username);
+    console.log("newPlayer", newPlayer);
     room.players.push(newPlayer);
-    connectedUsers.add(userId);
+    console.log("room.players", room);
     socket.join(room.name);
-    socket.emit("joinedRoom", room);
-    io.to(roomName).emit("playerJoined", username);
+    socket.emit("joinedRoom", { roomName: room.name, username: username });
+    //io.to(roomName).emit("playerJoined", { roomName: room.name, username: username });
   });
 
   // Handle user playing a card
@@ -119,6 +109,13 @@ io.on("connection", (socket) => {
     io.to(roomName).emit("playCard", { player: player, card });
   });
 
+  // Handle user disconnection
+  socket.on("disconnect", () => {
+    console.log(`User ${userId} has disconnected.`);
+    
+    //connectedUsers.delete(userId);
+  });
+
 
 });
 
@@ -127,7 +124,9 @@ function getRoomByName(name) {
 }
 
 function getRoomByPlayerId(id) {
-  return rooms.find((r) => r.players.some((p) => p.id === id));
+  if (rooms.length !== 0) {
+    return rooms.find((r) => r.players.some((p) => p.id === id));
+  }
 }
 
 function getPlayerByName(roomName, username) {
