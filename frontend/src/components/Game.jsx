@@ -29,7 +29,7 @@ const Game = () => {
             setCookie("username", newUsername);
         }
 
-        socket.on("startGame", ({ playerHand, opponentHand, playerDeck, opponentDeck }) => {
+        socket.on("gameStarted", ({ playerHand, opponentHand, playerDeck, opponentDeck }) => {
             setPlayerHand(playerHand);
             setOpponentHand(opponentHand);
             setPlayerDeck(playerDeck);

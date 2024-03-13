@@ -1,11 +1,10 @@
 // components/MyMenu.js
-import { useState, useContext, useEffect } from 'react';
+import { useState, useContext, useEffect, useCallback } from 'react';
 import { Menu, Modal, Form, Input, Select, message } from 'antd';
 import { HomeOutlined, PlusCircleOutlined, OrderedListOutlined, EllipsisOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import useUsernameCookie from '../hooks/useUsernameCookie';
 import { SocketContext } from '../context/SocketContext';
-import { io } from 'socket.io-client';
 
 const MyMenu = () => {
   const { setUsername, setCookie } = useUsernameCookie();
@@ -20,9 +19,9 @@ const MyMenu = () => {
 
   const navigate = useNavigate();
 
-  const info = (text) => {
+  const info = useCallback((text) => {
     messageApi.info(text);
-  };
+  }, [messageApi]);
 
   /* const handleLogout = () => {
     removeCookie("username");
@@ -38,7 +37,12 @@ const MyMenu = () => {
     setOpenParams(true);
   };
 
+
   useEffect(() => {
+    const handlePlayerJoined = (roomName, username) => {
+      info(`${username} joined the game in the room ${roomName}!`);
+    }
+
     const handleJoinedRoom = ({ roomName, username }) => {
       console.log(`User ${username} joined room ${roomName}`);
       navigate("/game", { replace: false });
@@ -46,10 +50,20 @@ const MyMenu = () => {
 
     socket.on("joinedRoom", handleJoinedRoom);
 
+    socket.on("playerJoined", ({ roomName, username }) => {
+      handlePlayerJoined(roomName, username);
+    });
+
+    socket.on("roomsAvailable", (data) => {
+      setRoomsFront(data)
+    });
+
     return () => {
-      socket.off("joinedRoom", handleJoinedRoom)
+      socket.off("joinedRoom");
+      socket.off("playerJoined");
+      socket.off("roomsAvailable");
     }
-  }, [navigate])
+  }, [info, navigate, socket])
 
   const onJoinedGame = (values) => {
     //console.log('Received values of form: ', values);
@@ -74,18 +88,6 @@ const MyMenu = () => {
     });
   };
 
-  socket.on("roomsAvailable", (data) => {
-    setRoomsFront(data)
-  });
-
-  /*  useEffect(() => {
-     socket.on("playerJoined", ({ roomName, username }) => {
-       handlePlayerJoined(roomName, username);
-     })
-   }, []) */
-
-
-
   console.log("socket", socket);
 
   const handleAvailableGamesClick = () => {
@@ -96,9 +98,7 @@ const MyMenu = () => {
     }
   };
 
-  const handlePlayerJoined = (roomName, username) => {
-    info(`${username} joined the game in the room ${roomName}!`);
-  }
+
 
   const items = [
     { key: "home", label: "Home", icon: <HomeOutlined />, link: "/" },
