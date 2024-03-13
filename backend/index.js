@@ -1,12 +1,28 @@
 const express = require("express");
-const app = express();
+const http = require("http");
 const cors = require("cors");
+const initializeSocket = require("./socket");
 
+const app = express();
 app.use(cors());
-const server = require("http").Server(app);
-const io = require("socket.io")(server, {
+const server = http.createServer(app);
+const port = process.env.PORT || 4000;
+
+initializeSocket(server);
+
+server.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
+});
+/* const io = require("socket.io")(server, {
   cors: {
     origin: "https://silver-umbrella-jjggxjrvv5q3rw6-5173.app.github.dev",
+    methods: ["GET", "POST"],
+  }
+}); */
+
+/* const io = require("socket.io")(server, {
+  cors: {
+    origin: "http://localhost:5173",
     methods: ["GET", "POST"],
   }
 });
@@ -17,13 +33,11 @@ const Player = require('../backend/src/models/Player');
 const port = process.env.PORT || 4000;
 
 const rooms = [];
-const connectedUsers = new Set();
-let NUMBERS_OF_CARDS = 0;
+let NUMBERS_OF_CARDS = 0; */
 
-io.on("connection", (socket) => {
+/* io.on("connection", (socket) => {
 
   const userId = socket.id;
-  connectedUsers.add(userId);
   console.log(`User ${userId} has connected.`);
 
 
@@ -37,7 +51,6 @@ io.on("connection", (socket) => {
 
     const newRoom = new Room(params);
     rooms.push(newRoom);
-    connectedUsers.add(userId);
     NUMBERS_OF_CARDS = parseInt(params.numCards);
     socket.emit("roomCreated", { created: "ok" });
     io.emit("roomsAvailable", rooms)
@@ -69,7 +82,7 @@ io.on("connection", (socket) => {
     console.log("room.players", room);
     socket.join(room.name);
     socket.emit("joinedRoom", { roomName: room.name, username: username });
-    //io.to(roomName).emit("playerJoined", { roomName: room.name, username: username });
+    io.to(roomName).emit("playerJoined", { roomName: room.name, username: username });
   });
 
   // Handle user playing a card
@@ -112,8 +125,10 @@ io.on("connection", (socket) => {
   // Handle user disconnection
   socket.on("disconnect", () => {
     console.log(`User ${userId} has disconnected.`);
-    
-    //connectedUsers.delete(userId);
+    // Supprimer l'utilisateur des salles et effectuer tout nettoyage nécessaire
+    for (let room of rooms) {
+      room.players = room.players.filter((player) => player.id !== socket.id);
+    }
   });
 
 
@@ -131,7 +146,7 @@ function getRoomByPlayerId(id) {
 
 function getPlayerByName(roomName, username) {
   return roomName.find((p) => p.name === username);
-}
+} */
 
 
 /* if (connectedUsers.has(socket.id)) {
@@ -239,6 +254,4 @@ function handleDisconnect() {
 
 
 
-server.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
-});
+
