@@ -1,18 +1,18 @@
 const socketio = require("socket.io")
 
 const initializeSocket = (server) => {
-    const io = socketio(server, {
+    /* const io = socketio(server, {
         cors: {
             origin: "http://localhost:5173", // Modifier en fonction de votre configuration frontend
             methods: ["GET", "POST"],
-        }
+        } 
+    }); */
 
-        /* const io = socketio(server, {
-            cors: {
-                origin: "https://silver-umbrella-jjggxjrvv5q3rw6-5173.app.github.dev", // Modifier en fonction de votre configuration frontend
-                methods: ["GET", "POST"],
-            }
-        }); */
+    const io = socketio(server, {
+        cors: {
+            origin: "https://silver-umbrella-jjggxjrvv5q3rw6-5173.app.github.dev", // Modifier en fonction de votre configuration frontend
+            methods: ["GET", "POST"],
+        }
     });
 
     const Deck = require("../backend/src/models/Deck");
@@ -34,6 +34,8 @@ const initializeSocket = (server) => {
             }
 
             const newRoom = new Room(params);
+            const newPlayer = new Player(userId, params.creator);
+            newRoom.players.push(newPlayer)
             rooms.push(newRoom);
             NUMBERS_OF_CARDS = parseInt(params.numCards);
             socket.emit("roomCreated", { created: "ok" });
@@ -43,30 +45,31 @@ const initializeSocket = (server) => {
         });
 
         // handle user joining a room
-        socket.on("joinRoom", ({ roomName, username }) => {
+        socket.on("joinRoom", ({ roomName, username }, callback) => {
 
             console.log("roomName, username", `${roomName}, ${username}`);
             const room = getRoomByName(roomName);
             console.log("room joinRoom", room);
             if (!room) {
                 console.log('----------here1----------------');
-                socket.emit("error", "Room not found");
-                return;
+                return callback({ error: "Room not found" });
             }
 
             if (room.players.length !== 0 && room.players.some((player) => player.name === username)) {
                 console.log('----------here2----------------');
-                socket.emit("error", "Username already taken");
-                return;
+                return callback({ error: "Username already taken" });
             }
 
             const newPlayer = new Player(userId, username);
             console.log("newPlayer", newPlayer);
-            room.players.push(newPlayer);
+            [...room.players, newPlayer];
+
+            console.log(`${username} has joined room ${roomName}`);
             console.log("room.players", room);
             socket.join(room.name);
             socket.emit("joinedRoom", { roomName: room.name, username: username });
-            io.to(roomName).emit("playerJoined", { roomName: room.name, players: room.players });
+            io.to(roomName).emit("playerJoined", { roomName: room.name, username: username, players: room.players });
+            callback(null)
         });
 
         // handle start game
@@ -84,7 +87,7 @@ const initializeSocket = (server) => {
 
             const player1 = r.players[0];
             const player2 = r.players[1];
-            
+
             const playersHand = deck.deal();
             const player1Hand = playersHand[0];
             player1.hand = player1Hand;

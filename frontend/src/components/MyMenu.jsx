@@ -5,6 +5,7 @@ import { HomeOutlined, PlusCircleOutlined, OrderedListOutlined, EllipsisOutlined
 import { Link, useNavigate } from 'react-router-dom';
 import useUsernameCookie from '../hooks/useUsernameCookie';
 import { SocketContext } from '../context/SocketContext';
+import MenuItems from './MenuItems';
 
 const MyMenu = () => {
   const { setUsername, setCookie } = useUsernameCookie();
@@ -18,6 +19,7 @@ const MyMenu = () => {
   const [messageApi, contextHolder] = message.useMessage();
 
   const navigate = useNavigate();
+  
 
   const info = useCallback((text) => {
     messageApi.info(text);
@@ -29,80 +31,97 @@ const MyMenu = () => {
     setUsername("");
   }; */
 
-  const showModal = () => {
-    setOpen(true);
-  };
+  const showModal = useCallback(() => { setOpen(true); }, []);
 
-  const showModalParams = () => {
-    setOpenParams(true);
-  };
+  const showModalParams = useCallback(() => { setOpenParams(true); }, []);
 
 
   useEffect(() => {
-    const handlePlayerJoined = (roomName, username) => {
-      info(`${username} joined the game in the room ${roomName}!`);
-    }
-
     const handleJoinedRoom = ({ roomName, username }) => {
       console.log(`User ${username} joined room ${roomName}`);
+      const updatedRooms = roomsFront.map((room) => {
+        if (room.name === roomName) {
+          return { ...room, players: [...room.players, { name: username, joined: true }] };
+        } else {
+          return room;
+        }
+      });
+
+      setRoomsFront(updatedRooms);
+      setOpen(false);
       navigate("/game", { replace: false });
     }
 
+    const handlePlayerJoined = ({ roomName, username, players }) => {
+      info(`${username} joined the game in the room ${roomName}!`);
+      const updatedRooms = roomsFront.map((room) => {
+        if (room.name === roomName) {
+          return { ...room, players };
+        } else {
+          return room;
+        }
+      });
+
+      setRoomsFront(updatedRooms);
+    }
+
+    const handleRoomsAvailable = (data) => {
+      setRoomsFront(data);
+    }
+
     socket.on("joinedRoom", handleJoinedRoom);
-
-    socket.on("playerJoined", ({ roomName, username }) => {
-      handlePlayerJoined(roomName, username);
-    });
-
-    socket.on("roomsAvailable", (data) => {
-      setRoomsFront(data)
-    });
+    socket.on("playerJoined", handlePlayerJoined);
+    socket.on("roomsAvailable", handleRoomsAvailable);
 
     return () => {
-      socket.off("joinedRoom");
-      socket.off("playerJoined");
-      socket.off("roomsAvailable");
+      socket.off("playerJoined", handlePlayerJoined);
+      socket.off("joinedRoom", handleJoinedRoom);
+      socket.off("roomsAvailable", handleRoomsAvailable);
     }
   }, [info, navigate, socket])
 
-  const onJoinedGame = (values) => {
-    //console.log('Received values of form: ', values);
+  const onJoinedGame = useCallback((values) => {
+    console.log('Received values of form: ', values);
     setCookie("username", values.username);
     setUsername(values.username);
     setCookie("room", values.roomName);
     setOpen(false);
-    socket.emit("joinRoom", { roomName: values.roomName, username: values.username });
+    socket.emit("joinRoom", { roomName: values.roomName, username: values.username }, (response) => {
+      console.log("response", response);
+      if (response !== null) {
+        messageApi.error(response.error);
+      } else {
+        navigate("/game", { replace: false });
+      }
+    });
+  }, [messageApi, navigate, setOpen, socket]);
 
-  };
-
-  const onCreateParams = (values) => {
-    //console.log(values);
-    //console.log("socket", socket)
-    socket.emit("createRoom", { roomName: values.roomName, numCards: parseInt(values.numCards) });
+  const onCreateParams = useCallback((values) => {
+    console.log(values);
+    console.log("socket", socket);
+    socket.emit("createRoom", { roomName: values.roomName, creator: values.creator, numCards: parseInt(values.numCards) });
     socket.on("roomCreated", ({ created }) => {
       if (created === "ok") {
         formParams.resetFields();
         setOpenParams(false);
       }
-
     });
-  };
+  }, [formParams, setOpenParams, socket]);
 
-  console.log("socket", socket);
+  //console.log("socket", socket);
 
-  const handleAvailableGamesClick = () => {
+  const handleAvailableGamesClick = useCallback(() => {
     if (roomsFront.length > 0) {
       showModal();
     } else {
-      info("Il n'y a pas de jeux  en cours pour le moment.");
+      info("Il n'y a pas de jeux en cours pour le moment.");
     }
-  };
+  }, [info, roomsFront, showModal]);
 
 
 
   const items = [
     { key: "home", label: "Home", icon: <HomeOutlined />, link: "/" },
-
     { key: "available-games", label: "Jeux Disponibles", icon: <OrderedListOutlined />, onClick: roomsFront.length > 0 ? showModal : handleAvailableGamesClick },
     { key: "create-game", label: "Créer", icon: <PlusCircleOutlined />, onClick: showModalParams },
   ];
@@ -117,7 +136,7 @@ const MyMenu = () => {
   return (
     <Menu theme="dark" mode="horizontal" defaultSelectedKeys={['1']} overflowedIndicator={<EllipsisOutlined />}>
       {contextHolder}
-      {items.map((item) => (
+      {/* {items.map((item) => (
 
         <Menu.Item key={item.key} icon={item.icon} ellipsis="false" >
           {item.link ? (
@@ -126,7 +145,12 @@ const MyMenu = () => {
             <span onClick={item.onClick}>{item.label}</span>
           )}
         </Menu.Item>
-      ))}
+      ))} */}
+      <MenuItems 
+        roomsFront={roomsFront} 
+        handleAvailableGamesClick={handleAvailableGamesClick}
+        showModalParams={showModalParams}
+      />
       <Modal
         open={open && roomsFront.length > 0}
         title="♥ ♦ ♣ ♠"
@@ -159,7 +183,7 @@ const MyMenu = () => {
             <Select placeholder="Choisir une salle de jeu">
               {roomsFront.map((room) => (
                 <Select.Option key={room.name} value={room.name}>
-                  {room.name}
+                  {room.name} - {room.players.length !== 0 ? room.players.filter((player) => player.joined).map((player) => player.name).join(', ') : `${room.players.length} joueurs`}
                 </Select.Option>
               ))}
             </Select>
@@ -190,6 +214,12 @@ const MyMenu = () => {
             rules={[{ required: true, message: "Veuillez saisir le nom de la salle!" }]}
           >
             <Input placeholder="Nom de la salle" />
+          </Form.Item>
+          <Form.Item
+            name="creator"
+            rules={[{ required: true, message: "Veuillez saisir votre nom d'utilisateur!" }]}
+          >
+            <Input placeholder="Nom d'utilisateur" />
           </Form.Item>
           <Form.Item
             name="numCards"

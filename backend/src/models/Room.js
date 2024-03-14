@@ -7,21 +7,22 @@ class Room {
         this.name = params.roomName;
         this.numCards = params.numCards;
         this.players = [];
-        this.lastCard =null
+        this.lastCard = null;
+        this.creatorName = params.creator;
     }
 
-    addPlayer(player){
+    addPlayer(player) {
         this.players.push(player);
         player.room = this;
     }
 
-    getPlayerByName(name){
-        return this.players.find((player)=>player.name === name);
+    getPlayerByName(name) {
+        return this.players.find((player) => player.name === name);
     }
 
-    getOpponent(player) { 
-        return this.players.find((p) => p !== player); 
-    } 
+    getOpponent(player) {
+        return this.players.find((p) => p !== player);
+    }
 
     static create(name, numCards, callback) {
         const sql = `INSERT INTO rooms (name, num_cards) VALUES (?, ?)`;
